@@ -18,7 +18,9 @@ import net.minecraft.entity.effect.StatusEffectInstance;
 import net.minecraft.entity.effect.StatusEffects;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.registry.Registries;
+import net.minecraft.registry.RegistryKey;
 import net.minecraft.registry.entry.RegistryEntry;
+import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.sound.SoundCategory;
@@ -26,8 +28,15 @@ import net.minecraft.sound.SoundEvents;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Box;
+import net.minecraft.util.math.Vec3d;
+import net.minecraft.world.World;
+
 import org.joml.Vector2i;
 import rearth.oritech.Oritech;
+import rearth.oritech.block.entity.augmenter.PlayerAugments.AugmentOperation;
+import rearth.oritech.block.entity.augmenter.PlayerAugments.PlayerAugment;
+import rearth.oritech.block.entity.augmenter.PlayerAugments.PlayerCustomAugment;
+import rearth.oritech.block.entity.augmenter.PlayerAugments.TickingAugment;
 import rearth.oritech.client.other.OreFinderRenderer;
 import rearth.oritech.init.BlockContent;
 import rearth.oritech.init.EntitiesContent;
@@ -584,8 +593,34 @@ public class PlayerAugments {
             var spawnToPlayer = spawnPos.subtract(player.getPos()).normalize().multiply(0.3);
             spawnPos = spawnPos.subtract(spawnToPlayer);
             
-            var targetPos = player.getAttached(OWN_TYPE);
-            if (targetPos == null) return;
+
+            Oritech.LOGGER.info("Player " + player.getName().getString() + " toggling portal");
+
+            Vec3d targetPos;
+            RegistryKey<World> targetWorld;
+            
+            if (player instanceof ServerPlayerEntity serverPlayer) {
+                BlockPos respawnPos = serverPlayer.getSpawnPointPosition();
+                RegistryKey<World> respawnWorld = serverPlayer.getSpawnPointDimension();
+                MinecraftServer server = serverPlayer.getServer();
+            
+                if (respawnPos != null) {
+                    targetPos = Vec3d.ofCenter(respawnPos);
+                    targetWorld = respawnWorld;
+                } else {
+                    // Fallback: use world spawn
+                    ServerWorld overworld = server.getOverworld();
+                    BlockPos fallback = overworld.getSpawnPos();
+            
+                    targetPos = Vec3d.ofCenter(fallback);
+                    targetWorld = World.OVERWORLD;
+            
+                    Oritech.LOGGER.info("No personal spawn found for {}, using world spawn at {}", player.getName().getString(), fallback);
+                }
+            } else {
+                Oritech.LOGGER.warn("Player {} is not a ServerPlayerEntity; cannot set portal target", player.getName().getString());
+                return;
+            }
             
             var portalEntity = EntitiesContent.PORTAL_ENTITY.create((ServerWorld) world, spawner -> {
             }, BlockPos.ofFloored(spawnPos), SpawnReason.EVENT, false, false);
@@ -593,10 +628,9 @@ public class PlayerAugments {
                 portalEntity.setPosition(spawnPos);
                 portalEntity.setYaw(-player.getYaw() + 90);
                 world.spawnEntity(portalEntity);
-                portalEntity.target = targetPos.toCenterPos();
-                
-                world.playSound(null, BlockPos.ofFloored(spawnPos), SoundEvents.AMBIENT_CAVE.value(), SoundCategory.BLOCKS, 2, 1.2f);
-                
+                portalEntity.target = targetPos;
+                portalEntity.targetWorld = targetWorld;    
+                world.playSound(null, BlockPos.ofFloored(spawnPos), SoundEvents.AMBIENT_CAVE.value(), SoundCategory.BLOCKS, 2, 1.2f);               
             }
         }
     }

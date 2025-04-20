@@ -5,8 +5,12 @@ import net.minecraft.entity.EntityType;
 import net.minecraft.entity.data.DataTracker;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.nbt.NbtCompound;
+import net.minecraft.registry.RegistryKey;
+import net.minecraft.server.network.ServerPlayerEntity;
+import net.minecraft.server.world.ServerWorld;
 import net.minecraft.util.math.Vec3d;
 import net.minecraft.world.World;
+import rearth.oritech.Oritech;
 import software.bernie.geckolib.animatable.GeoEntity;
 import software.bernie.geckolib.animatable.instance.AnimatableInstanceCache;
 import software.bernie.geckolib.animation.AnimatableManager;
@@ -21,6 +25,8 @@ public class PortalEntity extends Entity implements GeoEntity {
     private int age = 0;
     
     public Vec3d target;
+    public RegistryKey<World> targetWorld;
+
     protected static final RawAnimation PORTAL = RawAnimation.begin().thenPlay("create").thenLoop("idle");
     
     
@@ -36,11 +42,37 @@ public class PortalEntity extends Entity implements GeoEntity {
     
     @Override
     public void onPlayerCollision(PlayerEntity player) {
-        if (target != null) {
-            player.teleport(target.x, target.y, target.z, true);
+        if (!this.getWorld().isClient) {
+            if (target != null && targetWorld != null) {
+                Oritech.LOGGER.info("Player {} will go to {} in {}",
+                    player.getName().getString(), target, targetWorld.getValue());
+    
+                if (player instanceof ServerPlayerEntity serverPlayer) {
+                    ServerWorld destWorld = serverPlayer.getServer().getWorld(targetWorld);
+                    if (destWorld != null) {
+                        serverPlayer.teleport(
+                            destWorld,
+                            target.x, target.y, target.z,
+                            serverPlayer.getYaw(), serverPlayer.getPitch()
+                        );
+    
+                        Oritech.LOGGER.info("Teleported {} to {} in {}",
+                            serverPlayer.getName().getString(), target, targetWorld.getValue());
+                    } else {
+                        Oritech.LOGGER.warn("Target dimension {} not found!",
+                            targetWorld.getValue());
+                    }
+                } else {
+                    Oritech.LOGGER.warn("Player {} is not a ServerPlayerEntity",
+                        player.getName().getString());
+                }
+            } else {
+                Oritech.LOGGER.info("Player {} has no teleport target or target dimension!",
+                    player.getName().getString());
+            }
+    
+            this.remove(RemovalReason.DISCARDED);
         }
-        
-        this.remove(RemovalReason.DISCARDED);
     }
     
     @Override
