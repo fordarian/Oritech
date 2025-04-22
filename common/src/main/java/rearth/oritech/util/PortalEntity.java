@@ -1,12 +1,20 @@
 package rearth.oritech.util;
 
 import net.minecraft.entity.Entity;
+import net.minecraft.entity.Entity.RemovalReason;
 import net.minecraft.entity.EntityType;
 import net.minecraft.entity.data.DataTracker;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.nbt.NbtCompound;
+import net.minecraft.registry.RegistryKey;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.network.ServerPlayerEntity;
+import net.minecraft.server.world.ServerWorld;
 import net.minecraft.util.math.Vec3d;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.GlobalPos;
 import net.minecraft.world.World;
+import rearth.oritech.Oritech;
 import software.bernie.geckolib.animatable.GeoEntity;
 import software.bernie.geckolib.animatable.instance.AnimatableInstanceCache;
 import software.bernie.geckolib.animation.AnimatableManager;
@@ -20,7 +28,7 @@ public class PortalEntity extends Entity implements GeoEntity {
     
     private int age = 0;
     
-    public Vec3d target;
+    public GlobalPos target;
     protected static final RawAnimation PORTAL = RawAnimation.begin().thenPlay("create").thenLoop("idle");
     
     
@@ -36,8 +44,29 @@ public class PortalEntity extends Entity implements GeoEntity {
     
     @Override
     public void onPlayerCollision(PlayerEntity player) {
+        if (getWorld().isClient) return;
+
         if (target != null) {
-            player.teleport(target.x, target.y, target.z, true);
+            ServerWorld currentWorld = (ServerWorld) this.getWorld();
+            MinecraftServer server = currentWorld.getServer();
+            
+            RegistryKey<World> targetDimension = target.dimension();
+            ServerWorld targetWorld = server.getWorld(targetDimension);
+
+            if (!(player instanceof ServerPlayerEntity serverPlayer)) return;
+            
+            if (targetWorld != null) {
+                BlockPos targetPos = target.pos();
+                Vec3d centerPos = targetPos.toCenterPos();
+                
+                serverPlayer.teleport(
+                    targetWorld,
+                    centerPos.x, centerPos.y, centerPos.z,
+                    serverPlayer.getYaw(), serverPlayer.getPitch()
+                );
+            } else {
+                Oritech.LOGGER.warn("Attempted to teleport player to non-existent dimension: {}", targetDimension.getValue());
+            }
         }
         
         this.remove(RemovalReason.DISCARDED);
