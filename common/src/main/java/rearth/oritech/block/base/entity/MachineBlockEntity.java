@@ -437,7 +437,8 @@ public abstract class MachineBlockEntity extends BlockEntity
     public void cycleInputMode() {
         switch (inventoryInputMode) {
             case FILL_LEFT_TO_RIGHT:
-                inventoryInputMode = InventoryInputMode.FILL_EVENLY;
+                // TODO: enable after the fix )
+                // inventoryInputMode = InventoryInputMode.FILL_EVENLY;
                 break;
             case FILL_EVENLY:
                 inventoryInputMode = InventoryInputMode.FILL_LEFT_TO_RIGHT;
