@@ -6,8 +6,6 @@ import net.minecraft.entity.EntityType;
 import net.minecraft.entity.data.DataTracker;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.nbt.NbtCompound;
-import net.minecraft.registry.RegistryKey;
-import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.util.math.Vec3d;
@@ -47,25 +45,21 @@ public class PortalEntity extends Entity implements GeoEntity {
         if (getWorld().isClient) return;
 
         if (target != null) {
-            ServerWorld currentWorld = (ServerWorld) this.getWorld();
-            MinecraftServer server = currentWorld.getServer();
-            
-            RegistryKey<World> targetDimension = target.dimension();
-            ServerWorld targetWorld = server.getWorld(targetDimension);
-
             if (!(player instanceof ServerPlayerEntity serverPlayer)) return;
             
+            ServerWorld targetWorld = this.getServer().getWorld(target.dimension());
+
             if (targetWorld != null) {
                 BlockPos targetPos = target.pos();
                 Vec3d centerPos = targetPos.toCenterPos();
-                
+
                 serverPlayer.teleport(
                     targetWorld,
                     centerPos.x, centerPos.y, centerPos.z,
                     serverPlayer.getYaw(), serverPlayer.getPitch()
                 );
             } else {
-                Oritech.LOGGER.warn("Attempted to teleport player to non-existent dimension: {}", targetDimension.getValue());
+                Oritech.LOGGER.warn("Attempted to teleport player to non-existent dimension: {}", target.dimension().getValue());
             }
         }
         
